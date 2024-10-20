@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+echo "Использование: $0 <IP-адрес>"
+exit 1
+fi
+
+IP_ADDRESS="$1"
+API_URL="https://ipinfo.io/$IP_ADDRESS/geo"
+
+response=$(curl -s "$API_URL")
+
+if [ $? -ne 0 ]; then
+echo "ошибка при получении данных из API."
+exit 1
+fi
+
+if [[ "$response" == *"error"* ]]; then
+echo "Ошибка: Неверный IP-адрес или нет данных для этого IP."
+exit 1
+fi
+
+
+entries=$(echo "$response" | jq -r 'to_entries[] | [.key, .value] | @tsv')
+
+max_key_length=0
+max_value_length=0
+
+while IFS=$'\t' read -r key value; do
+key_length=${#key}
+value_length=${#value}
+
+if (( key_length > max_key_length )); then
+max_key_length=$key_length
+fi
+
+if (( value_length > max_value_length )); then
+max_value_length=$value_length
+fi
+done <<< "$entries"
+while IFS=$'\t' read -r key value; do
+printf "| %-${max_key_length}s | %-${max_value_length}s |\n" "$key" "$value"
+done <<< "$entries"
